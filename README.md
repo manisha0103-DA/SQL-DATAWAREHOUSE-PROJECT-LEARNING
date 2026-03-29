@@ -42,3 +42,25 @@ Load clean data into:
 Dimension tables (e.g., customers, products, time)
 Fact tables (e.g., sales, transactions)
 
+📈 Use Cases
+Business Intelligence reporting
+Sales analysis
+Data engineering practice
+Learning dimensional modeling
+
+📜 License
+
+This project is licensed under the MIT License.
+
+👩‍💼 About Me
+
+Hi, I’m Manisha — a data enthusiast with experience in SQL, data analytics, and the insurance domain.
+
+I specialize in:
+
+Writing efficient SQL queries for data extraction and transformation
+Analyzing data to uncover trends and support business decisions
+Working with insurance data, including policy, claims, and customer insights
+
+I’m passionate about turning raw data into meaningful insights and continuously improving my skills in data engineering and analytics.
+
