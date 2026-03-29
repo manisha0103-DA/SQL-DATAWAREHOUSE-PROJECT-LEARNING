@@ -1,0 +1,43 @@
+/* Purpose
+
+This script initializes a Data Warehouse in Microsoft SQL Server by:
+
+Dropping the existing Datawarehouse database (if it exists)
+Creating a fresh database
+Setting up schemas:
+Bronze (raw data)
+Silver (cleaned data)
+Gold (analytics-ready data)
+⚠️ Warning
+❗ Deletes entire database (data loss is permanent)
+❗ Disconnects all active users immediately
+❗ Do NOT run in production without backup */
+
+/--using master Database
+Use master
+Go
+---Drop and recreate the 'datawarehouse' Database
+
+IF EXISTS(SELECT 1 FROM sys.databases where name ='datawarehouse'
+BEGIN
+ALTER database Datawarehouse SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+DROP DATABASE Datawarehouse;
+END
+GO
+
+---Create the database 'Datawarehouse'
+Create database Datawarehouse
+
+use Datawarehouse;
+
+--Craete Schemas
+
+
+Create Schema Bronze;
+GO---separator in SQL...first execute first command and then go to second command
+
+Create Schema Silver;
+GO
+
+Create Schema Gold;
+GO
