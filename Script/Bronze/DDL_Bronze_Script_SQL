@@ -1,1 +1,205 @@
+---Drop and recreate the 'datawarehouse' Database
+
+IF EXISTS(SELECT 1 FROM sys.databases where name ='datawarehouse'
+BEGIN
+ALTER database Datawarehouse SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+DROP DATABASE Datawarehouse;
+END
+GO
+
+---Create the database 'Datawarehouse'
+Create database Datawarehouse
+
+use Datawarehouse;
+
+--Craete Schemas
+
+
+Create Schema Bronze;
+GO---separator in SQL...first execute first command and then go to second command
+
+Create Schema Silver;
+GO
+
+Create Schema Gold;
+GO
+
+USE Datawarehouse
+/*CHECK WHETHER TABLES EXISTS BEFORE CREATING
+IF WE WANT TO RENAME THE TABLE OR CHANGE DATA TYPE OF ANY COLUMN WE HAVE TO DROP TABLE---tsql logic*/
+
+IF OBJECT_ID('Bronze.crm_cust_info','U') IS NOT NULL
+    DROP TABLE Bronze.crm_cust_info;
+
+CREATE TABLE Bronze.crm_cust_info (
+cst_id	int,
+cst_key	NVARCHAR(50),
+cst_firstname	NVARCHAR(50),
+cst_lastname	NVARCHAR(50),
+cst_marital_status NVARCHAR(50)	,
+cst_gndr	NVARCHAR(50),
+cst_create_date DATE );
+
+SELECT * FROM Bronze.crm_cust_info 
+
+IF OBJECT_ID('Bronze.crm_prd_info','U') IS NOT NULL
+    DROP TABLE Bronze.crm_prd_info;
+
+CREATE TABLE Bronze.crm_prd_info(
+prd_id	INT,
+prd_key NVARCHAR(50),
+prd_nm	NVARCHAR(50),
+prd_cost INT,
+prd_line NVARCHAR(50),
+prd_start_dt	DATETIME,
+prd_end_dt DATETIME)
+
+IF OBJECT_ID('Bronze.crm_sales_details','U') IS NOT NULL
+    DROP TABLE Bronze.crm_sales_details;
+
+CREATE TABLE Bronze.crm_sales_details(
+sls_ord_num NVARCHAR(50),
+sls_prd_key NVARCHAR(50),
+sls_cust_id INT,
+sls_order_d INT,
+sls_ship_dt	INT,
+sls_due_dt	INT,
+sls_sales INT,	
+sls_quantity INT,
+sls_price INT );
+
+
+
+IF OBJECT_ID('Bronze.erp_CUST_AZ12','U') IS NOT NULL
+    DROP TABLE Bronze.erp_CUST_AZ12;
+
+CREATE TABLE Bronze.erp_CUST_AZ12 (
+    CID NVARCHAR(50),
+    BDATE DATE,
+    GEN NVARCHAR(10)
+);
+
+
+IF OBJECT_ID('Bronze.erp_LOC_A101','U') IS NOT NULL
+    DROP TABLE Bronze.erp_LOC_A101;
+
+
+CREATE TABLE Bronze.erp_LOC_A101(
+CID	 NVARCHAR(50),
+CNTRY NVARCHAR(50));
+
+IF OBJECT_ID('Bronze.erp_PX_CAT_G1V2','U') IS NOT NULL
+    DROP TABLE Bronze.erp_PX_CAT_G1V2;
+
+CREATE TABLE Bronze.erp_PX_CAT_G1V2(
+ID	NVARCHAR(50),
+CAT	NVARCHAR(50),
+SUBCAT NVARCHAR(50),
+MAINTENANCE NVARCHAR(50));
+
+
+
+------LOADING DATA INTO SQL------------------------------------------------
+
+CREATE  OR ALTER  PROCEDURE Bronze.Load_procedure AS  -- STORED PROCEDURE for avoid running script each time.
+BEGIN
+	DECLARE @ start_time DATETIME , @end_time DATETIME;
+BEGIN TRY
+
+	
+
+SET @START_TIME = GETDATE() 
+
+--FULL LOAD  cust_info  data int table
+TRUNCATE TABLE Bronze.crm_cust_info;-----THIS COMMAND EMPTY THE TABLE AND RELOAD THE FILES..ELIMINATING THE MULTIPLE LOAD ERROR
+
+BULK INSERT  Bronze.crm_cust_info
+FROM 'C:\Users\Admin\Desktop\New folder\sql-data-warehouse-project\datasets\source_crm\cust_info.csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK---Locks the entire table during the operation
+	)
+
+SET @END_TIME=GETDATE()
+
+PRINT'>>LOAD DURATION: 'cast(DATEDIF(second,@start_end,@end_time)as nvarchar) +'seconds';
+
+SELECT COUNT(* )FROM Bronze.crm_cust_info;
+
+--FULL LOAD  prd_info  data int table
+TRUNCATE TABLE Bronze.crm_prd_info;-----THIS COMMAND EMPTY THE TABLE AND RELOAD THE FILES..ELIMINATING THE MULTIPLE LOAD ERROR
+
+BULK INSERT  Bronze.crm_prd_info
+FROM 'C:\Users\Admin\Desktop\New folder\sql-data-warehouse-project\datasets\source_crm\prd_info.csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+
+	SELECT COUNT(* )FROM Bronze.crm_prd_info;
+
+
+	
+--FULL LOAD sales_details  data int table
+TRUNCATE TABLE Bronze.crm_sales_details;-----THIS COMMAND EMPTY THE TABLE AND RELOAD THE FILES..ELIMINATING THE MULTIPLE LOAD ERROR
+
+BULK INSERT  Bronze.crm_sales_details
+FROM 'C:\Users\Admin\Desktop\New folder\sql-data-warehouse-project\datasets\source_crm\sales_details.csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+
+	SELECT COUNT(* )FROM Bronze.crm_sales_details;
+
+
+	--FULL LOAD  erp_CUST_AZ12  data int table
+TRUNCATE TABLE Bronze.erp_CUST_AZ12;-----THIS COMMAND EMPTY THE TABLE AND RELOAD THE FILES..ELIMINATING THE MULTIPLE LOAD ERROR
+
+BULK INSERT  Bronze.erp_CUST_AZ12
+FROM 'C:\Users\Admin\Desktop\New folder\sql-data-warehouse-project\datasets\source_erp\CUST_AZ12.csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+
+	SELECT COUNT(* )FROM Bronze.erp_CUST_AZ12;
+
+
+	--FULL LOAD  erp_LOC_A101  data int table
+TRUNCATE TABLE Bronze.erp_LOC_A101;-----THIS COMMAND EMPTY THE TABLE AND RELOAD THE FILES..ELIMINATING THE MULTIPLE LOAD ERROR
+
+BULK INSERT  Bronze.erp_LOC_A101
+FROM 'C:\Users\Admin\Desktop\New folder\sql-data-warehouse-project\datasets\source_erp\LOC_A101.csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+
+	SELECT COUNT(* )FROM Bronze.erp_LOC_A101;
+
+
+		--FULL LOAD  erp_PX_CAT_G1V2  data int table
+TRUNCATE TABLE Bronze.erp_PX_CAT_G1V2;-----THIS COMMAND EMPTY THE TABLE AND RELOAD THE FILES..ELIMINATING THE MULTIPLE LOAD ERROR
+
+BULK INSERT  Bronze.erp_PX_CAT_G1V2
+FROM 'C:\Users\Admin\Desktop\New folder\sql-data-warehouse-project\datasets\source_erp\PX_CAT_G1V2.csv'
+WITH(
+	FIRSTROW=2,
+	FIELDTERMINATOR=',',
+	TABLOCK
+	)
+
+	SELECT COUNT(* )FROM Bronze.erp_PX_CAT_G1V2;
+	END TRY;
+	END ;
+		
+
+
+
 
