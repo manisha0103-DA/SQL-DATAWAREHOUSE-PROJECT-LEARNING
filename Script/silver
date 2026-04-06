@@ -1,0 +1,183 @@
+
+********************************COMPLETE DATA TABLES FROM BROZE LAYER , AFTER CLEANING,VERIFYING UPLOADED IN THE SILVER LAYER AND SAVED AS STORED PROCEDURE******************************************8
+CREATE OR ALTER PROCEDURE Silver.load_silver AS
+BEGIN
+
+PRINT'TABLE [Datawarehouse].[SILVER].[silver.crm_sales_details] UPLOADING PROCEDURE'
+PRINT '..TRUNCATING TO  AVOID MULTIPLE UPLOAD...'
+TRUNCATE TABLE silver.crm_sales_details
+PRINT '>> TRUNCATING COMPLETED'
+INSERT INTO silver.crm_sales_details
+ ([sls_ord_num],
+ [sls_prd_key],
+ [sls_cust_id],
+ [sls_order_d],
+ [sls_ship_dt],
+ [sls_due_dt],
+ [sls_sales],
+ [sls_quantity ],
+ [sls_price])
+
+ SELECT [sls_ord_num]
+              ,[sls_prd_key]
+              ,[sls_cust_id]
+              ,CASE WHEN [sls_order_d] =0 THEN NULL
+              WHEN LEN ([sls_order_d])!=8 THEN NULL
+              ELSE CAST(CAST([sls_order_d] AS VARCHAR) AS DATE)
+              END [sls_order_d]
+              ,CASE WHEN [sls_ship_dt] =0 THEN NULL
+              WHEN LEN ([sls_ship_dt])!=8 THEN NULL
+              ELSE CAST(CAST([sls_ship_dt] AS VARCHAR) AS DATE)
+              END [sls_ship_dt]
+             ,CASE WHEN [sls_due_dt] =0 THEN NULL
+              WHEN LEN ([sls_due_dt])!=8 THEN NULL
+              ELSE CAST(CAST([sls_due_dt] AS VARCHAR) AS DATE)
+                  END [sls_due_dt]
+                 ,CASE WHEN  [sls_sales] <=0 
+                  OR [sls_sales] IS NULL 
+                  OR [sls_sales] != [sls_quantity]*ABS([sls_price])  THEN 
+                  [sls_quantity]*ABS ([sls_price])
+                  ELSE [sls_sales]
+                  END [sls_sales]
+                  ,[sls_quantity]
+                  ,CASE WHEN [sls_price]<=0 OR [sls_price] IS NULL
+                  THEN  [sls_sales] / NULLIF([sls_quantity ],0)
+                  ELSE [sls_price]
+                  END [sls_price]
+              FROM [Datawarehouse].[Bronze].[crm_sales_details]
+PRINT'---------DATA UPLOADE INTO [Datawarehouse].[silver].[crm_sales_details]------------'
+
+
+
+PRINT'TABLE [Datawarehouse].[SILVER].[erp_PX_CAT_G1V2] UPLOADING PROCEDURE'
+PRINT '**************************************WE ARE TRUNCATING THE TABLE TO AVOID REPEATED UPLOAD********************************'
+TRUNCATE  TABLE [Datawarehouse].[SILVER].[erp_PX_CAT_G1V2]
+PRINT'***************************************TRUNCATING COMPLETED LOAD DATA*******************************************************'
+INSERT INTO [Datawarehouse].[SILVER].[erp_PX_CAT_G1V2]
+([ID]
+      ,[CAT]
+      ,[SUBCAT]
+      ,[MAINTENANCE])
+
+SELECT [ID]
+      ,[CAT]
+      ,[SUBCAT]
+      ,[MAINTENANCE]
+  FROM [Datawarehouse].[Bronze].[erp_PX_CAT_G1V2]
+  PRINT'********************************[SILVER].[erp_PX_CAT_G1V2] DATA UPLOADED**************************************************'
+  
+
+
+
+PRINT'TABLE [Datawarehouse].[SILVER].[erp_CUST_AZ12] UPLOADING PROCEDURE'
+TRUNCATE TABLE SILVER.erp_CUST_AZ12
+INSERT INTO [Silver].[erp_CUST_AZ12]
+( CID,
+BDATE,
+GEN)
+SELECT 
+CASE 
+WHEN CID LIKE 'NAS%'THEN SUBSTRING (CID,4, LEN(CID))
+ELSE CID
+END CID,
+CASE
+WHEN BDATE > GETDATE() THEN NULL
+ELSE BDATE
+END AS BDATE ,
+CASE 
+WHEN UPPER(TRIM(GEN)) IN ('F','FEMALE') THEN 'female'
+WHEN UPPER(TRIM(GEN)) IN ('M','MALE') THEN 'male'
+ELSE  'n/a'
+END GEN
+FROM [Datawarehouse].[Bronze].[erp_CUST_AZ12]
+  PRINT'********************************[SILVER].[erp_CUST_AZ12] DATA UPLOADED**************************************************'
+
+
+
+PRINT'TABLE [Datawarehouse].[SILVER].[crm_cust_info] UPLOADING PROCEDURE'
+TRUNCATE TABLE Silver.crm_cust_info
+INSERT INTO Silver.crm_cust_info
+(
+    [cst_id],
+    [cst_key],
+    [cst_firstname],
+    [cst_lastname],
+    [cst_marital_status],
+    [cst_gndr],
+    [cst_create_date]
+)
+SELECT cst_id,
+cst_key,
+TRIM(cst_firstname) as cst_firstname ,
+TRIM(cst_lastname)as cst_lastname ,
+
+CASE WHEN UPPER(TRIM(cst_marital_status )) ='M' then 'married'
+WHEN UPPER(TRIM(cst_marital_status)) ='s' then 'single'
+else 'N/A'
+end cst_marital_status,
+CASE WHEN UPPER(TRIM(cst_gndr ))='M' then 'male'
+WHEN UPPER(TRIM(cst_gndr))='F' then 'female'
+ELSE 'N/A'
+END cst_gndr,
+cst_create_date
+FROM 
+(
+SELECT *  ,
+ROW_NUMBER() over (partition  by cst_id order by cst_create_date desc) as Flag
+FROM  bronze.crm_cust_info 
+)t
+WHERE  flag =1  and cst_id is NOT NULL
+PRINT'********************************[SILVER].crm_cust_info DATA UPLOADED**************************************************'
+
+
+PRINT'TABLE [Datawarehouse].[SILVER].[crm_prd_info] UPLOADING PROCEDURE'
+TRUNCATE TABLE [Silver].[crm_prd_info]
+INSERT INTO [Silver].[crm_prd_info]
+(prd_id,
+cat_key,
+prd_key,
+prd_nm,
+prd_cost,
+prd_line,
+prd_start_dt,
+prd_end_dt
+)
+SELECT 
+prd_id,
+REPLACE(SUBSTRING(prd_key,1,5),'-','_') AS  cat_key,
+SUBSTRING(prd_key,7,LEN(prd_key))AS prd_key,
+prd_nm,
+ISNULL(prd_cost,0)AS prd_cost,
+CASE UPPER(TRIM(prd_line))
+    WHEN 'M' THEN 'Mountain'
+    WHEN 'R'THEN'River'
+    WHEN 's'THEN'Other sales'
+    WHEN 't'THEN'Touring'
+ELSE 'N/A'
+END prd_line,
+CAST(prd_start_dt AS DATE)prd_start_dt,
+CAST(LEAD(prd_start_dt)OVER(PARTITION BY  prd_key ORDER BY prd_start_dt ASC)-1 AS DATE) prd_end_dt--lEAD FUNCTION FOR TAKING NEXT DATE
+FROM bronze.crm_prd_info
+
+PRINT'TABLE [Datawarehouse].[SILVER].[crm_prd_info] UPLOADING PROCEDURE COMPLETED'
+
+
+PRINT'TABLE [Datawarehouse].[SILVER].[ERP_LOC_A101] UPLOADING PROCEDURE'
+TRUNCATE TABLE SILVER.ERP_LOC_A101
+INSERT INTO SILVER.ERP_LOC_A101
+(
+CID,
+CNTRY
+)
+SELECT [CID],
+CASE 
+WHEN CNTRY ='DE' THEN 'Germany'
+WHEN CNTRY IN( 'USA','US','United states') THEN 'United States'
+WHEN CNTRY IS NULL OR CNTRY =' ' THEN 'N/A'
+ELSE CNTRY
+END CNTRY
+ FROM [Datawarehouse].[Bronze].[erp_LOC_A101]
+
+ PRINT'TABLE [Datawarehouse].[SILVER].[ERP_LOC_A101] UPLOADING PROCEDURE COMPLETED'
+
+ END
