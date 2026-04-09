@@ -1,1 +1,108 @@
+Gold View: Sales Analytics (Fact + Dimensions)
+
+This Gold layer view delivers a business-ready dataset by integrating the fact_sales table with dim_customers and dim_products. It enables consistent and reliable analytics across sales, customer, and product domains.
+
+Description
+
+The view enriches transactional sales data with customer and product attributes, creating a unified dataset for reporting and downstream consumption.
+
+Key Features
+Combines fact and dimension tables for a denormalized analytical view
+Provides customer-level and product-level sales insights
+Ensures data consistency across reporting layers
+Uses LEFT JOINs to retain all sales records
+Data Sources
+fact_sales: Core transactional sales data (measures like sales amount, quantity, price)
+dim_customers: Customer attributes (e.g., customer name, segment, location)
+dim_products: Product attributes (e.g., product name, category, type)
+
+--------------------------------------------------------------------------------------------------------------------------------------
+ SQL SCRIPT -Gold.Dim_Customers
+--------------------------------------------------------------------------------------------------------------------------------------
+
+--DIMENSION TABLE(DETAILS OF SOURCE SYSTEM)
+CREATE VIEW Gold.Dim_Customers AS -------creating view
+SELECT 
+ROW_NUMBER() OVER (ORDER BY ci.cst_id) AS SURRO_KEY,---SURROGTE KEY(system generated unique identifier assined to each row)
+ci.cst_id AS CUSTOMER_ID,
+ci.cst_key AS CUSTOMER_KEY,
+ci.cst_firstname AS CUSTOMER_FIRST_NAME,
+ci.cst_lastname AS CUSTOMER_LAST_NAME,
+LO.CNTRY AS COUNTRY,
+ci.cst_marital_status AS MARITAL_STATUS,
+CASE 
+	WHEN ci.cst_gndr !='N/A' THEN ci.cst_gndr----CRM IS MASTER FOR GENDER
+	ELSE COALESCE(ca.GEN,'N/A') -----COALESCE TO REPLACE NULL VALUES WITH NEW VALUE
+	END GENDER,
+ca.BDATE AS BIRTH_DATE,
+ci.cst_create_date AS CREATE_DATE
+FROM  SILVER.CRM_cust_info ci
+LEFT JOIN silver.erp_cust_AZ12 ca
+ON
+ci.cst_key=ca.cid
+LEFT JOIN silver.erp_LOC_A101 LO
+ON
+ci.cst_key =lo.CID
+
+
+--------DATA INTEGRATION BECOZ TWO GENDER INFORMATION AVAIABLE DATA FROM 2 TABLES-----------
+SELECT 
+DISTINCT
+ci.cst_gndr,
+ca.GEN,
+CASE 
+	WHEN ci.cst_gndr !='N/A' THEN ci.cst_gndr----CRM IS MASTER FOR GENDER
+	ELSE COALESCE(ca.GEN,'N/A') -----COALESCE TO REPLACE NULL VALUES WITH NEW VALUE
+	END new_gndr
+
+FROM  SILVER.CRM_cust_info ci
+LEFT JOIN silver.erp_cust_AZ12 ca
+ON
+ci.cst_key=ca.cid
+ORDER BY 1,2
+------------------------------------------------------------------------------------------------
+SQL SCRIPT--Gold_Dim_Products
+--------------------------------------------------------------------------------------------------
+REATE VIEW  Gold.Dim_products AS
+SELECT 
+ROW_NUMBER() OVER (ORDER BY pd.prd_start_dt,pd.prd_id) AS PRODUCT_KEY,
+pd.prd_id AS PRODUCT_ID,
+pd.prd_key AS PRODUCT_NUMBER,
+pd.cat_key AS CATEORY_KEY,
+
+pd.prd_nm AS PRODUCT_NAME,
+pc.cat AS CATEORY,
+pc.subcat AS SUBCATECORY,
+pc.maintenance AS MAINTAINENCE,
+pd.prd_cost AS PRODUCT_COST,
+pd.prd_line AS PRODUCT_LINE,
+pd.prd_start_dt AS PRODUCT_START_DATE,
+pd.prd_end_dt AS PRODUCT_END_DATE
+FROM silver.crm_prd_info as pd
+LEFT JOIN [Silver].[erp_PX_CAT_G1V2] AS pc
+ON PD.cat_key =pc.id
+WHERE pd.prd_end_dt IS NULL ---Filter out all historical data only current data reflecting
+-----------------------------------------------------------------------------------------------------------
+SQL SCRIPT--Gold_Fact_sales
+-----------------------------------------------------------------------------------------------------------
+/* since it is connecting multiple dimensions we can    using surrogationg keys to connect the 
+multiple dimension known as data look up*/
+
+CREATE VIEW Gold.Fact_Sales AS
+SELECT 
+       sd.sls_ord_num AS ORDER_NUMBER
+       ,cu.surro_key AS CUSTOMER_KEY
+      ,pr.product_key AS PRODUCT_KEY
+      ,sd.sls_order_d AS SALES_ORDER_DETAILS
+      ,sd.sls_ship_dt AS SALES_SHIPPING_DATE
+      ,sd.sls_due_dt AS SALES_DUE_DATE
+      ,sd.sls_sales AS SALES
+      ,sd.sls_quantity AS SALES_QTY
+      ,sd.sls_price AS PRICE
+      ,sd.dwh_create_date
+  FROM [Datawarehouse].[Silver].[crm_sales_details] as sd
+  LEFT JOIN Gold.[Dim_products] AS  pr  
+  ON sd.sls_prd_key = pr.product_NUMBER
+  LEFT JOIN [Gold].[Dim_Customers] cu
+  ON sd.sls_cust_id = cu.customer_id
 
